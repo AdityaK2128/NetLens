@@ -12,10 +12,12 @@
 		07CB608B1BDCF1690B24DBEF /* NameCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009BB09E0CC4204B1F62DF94 /* NameCache.swift */; };
 		07D2037B828FFE72AA0C9DF8 /* SpeedTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A1F3DAC716C7589F872A0E /* SpeedTestView.swift */; };
 		08397823F161B733251E202A /* Throughput.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4580CBD3BC038980BECAAA0 /* Throughput.swift */; };
+		09BCC46452539010D29C080C /* Nmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D798C3F6C31EE9C52063D34 /* Nmap.swift */; };
 		09C5FAA8FFF9F5F41784A553 /* PortsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B604A7F5B838B937EB9C1B /* PortsView.swift */; };
 		12966913C1AA904915B79DA6 /* HTTPInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE405A2EA2D4D04EB40654B /* HTTPInspectorView.swift */; };
 		16A1A1E565362263064C8D9D /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB507A7495FB3F49D7F7E7E8 /* OverviewView.swift */; };
 		207634B31EC6054120B9E9EC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41705DF6688785B64674CCCC /* Theme.swift */; };
+		22275D0364F871A511A7D627 /* NmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCE112A0803D11097E4824BD /* NmapView.swift */; };
 		27010485CF7AAA0163DC83D8 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F008B2F19588B2BC89F32DD /* AppModel.swift */; };
 		272E2BBAF9D7199458B8A032 /* KnownHosts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 342B506DC4F978B6EF03D1F3 /* KnownHosts.swift */; };
 		27E40FC161D6631C62E055C5 /* PingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C467B716F5EF0A0CA9071EC6 /* PingView.swift */; };
@@ -55,6 +57,7 @@
 		BC3DCA013C3E115C6CB0597A /* Traceroute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0873F92545E868AAD13182A8 /* Traceroute.swift */; };
 		BD60608DB86ABD626A8F708F /* DNSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2DB323DFA16D79B7060B55 /* DNSClient.swift */; };
 		C8F41CC84F4D9D41665FE900 /* Neighbors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55DB9F5022DB2E0E80AB86B /* Neighbors.swift */; };
+		CA14CD0AAE27494C6B133927 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E688B79C48CFDE0FC29BBA /* Diagnostics.swift */; };
 		D06E43B7AED8AF2EC274CDD4 /* ProcessCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FF79609EE12EE52B838A724 /* ProcessCatalog.swift */; };
 		D1695824B1002EADB63721DC /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C5C99E408DF144855934BD /* Shell.swift */; };
 		D41B1FFD7C5CC5FF5645D1F4 /* InterfacesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1AAA2A7BB6016C97FE1D49 /* InterfacesView.swift */; };
@@ -94,6 +97,7 @@
 
 /* Begin PBXFileReference section */
 		009BB09E0CC4204B1F62DF94 /* NameCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameCache.swift; sourceTree = "<group>"; };
+		00E688B79C48CFDE0FC29BBA /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		04AB1C21090475AB20E45170 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		0674BCDC304F60AD1DDB3DA0 /* HTTPProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPProbe.swift; sourceTree = "<group>"; };
 		0873F92545E868AAD13182A8 /* Traceroute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Traceroute.swift; sourceTree = "<group>"; };
@@ -119,6 +123,7 @@
 		75F662AB422B36F6844E23D1 /* DNSMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DNSMessage.swift; sourceTree = "<group>"; };
 		7A203908649C4B93BC8F6EF1 /* BandwidthShaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BandwidthShaper.swift; sourceTree = "<group>"; };
 		7A7D8DD45509403887DC3C04 /* TracerouteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TracerouteView.swift; sourceTree = "<group>"; };
+		7D798C3F6C31EE9C52063D34 /* Nmap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nmap.swift; sourceTree = "<group>"; };
 		7F3F8376372F8269E632C43E /* Glossary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Glossary.swift; sourceTree = "<group>"; };
 		8126357A2629E6FCD7DB754B /* CaptureSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSession.swift; sourceTree = "<group>"; };
 		82496A93028F3CA1E50660CC /* DHCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DHCP.swift; sourceTree = "<group>"; };
@@ -144,6 +149,7 @@
 		C56CA38AB11A5DBDC584C687 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		CB507A7495FB3F49D7F7E7E8 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
 		CC94B1E081BD34FC94A891E1 /* IP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IP.swift; sourceTree = "<group>"; };
+		CCE112A0803D11097E4824BD /* NmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NmapView.swift; sourceTree = "<group>"; };
 		D4288D659756282E3575E38A /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 		D8C5C99E408DF144855934BD /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 		D996A3BEA6D596FAE81805DB /* WiFi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFi.swift; sourceTree = "<group>"; };
@@ -222,6 +228,7 @@
 				7A203908649C4B93BC8F6EF1 /* BandwidthShaper.swift */,
 				EF14A345185153B3F21A3EE0 /* ConnectionMonitor.swift */,
 				82496A93028F3CA1E50660CC /* DHCP.swift */,
+				00E688B79C48CFDE0FC29BBA /* Diagnostics.swift */,
 				8A7D48FBE67E78DE7FDA3397 /* GeoIP.swift */,
 				5F71CB1C7EDAEFABA48EB6F5 /* GeoMath.swift */,
 				0674BCDC304F60AD1DDB3DA0 /* HTTPProbe.swift */,
@@ -233,6 +240,7 @@
 				2C07490D907FC72ABA04E40D /* LocalNetworkAccess.swift */,
 				009BB09E0CC4204B1F62DF94 /* NameCache.swift */,
 				A55DB9F5022DB2E0E80AB86B /* Neighbors.swift */,
+				7D798C3F6C31EE9C52063D34 /* Nmap.swift */,
 				3E05D8673B85C0B8D01A7629 /* PingMonitor.swift */,
 				2FF79609EE12EE52B838A724 /* ProcessCatalog.swift */,
 				B8D438745C216AA4BE253008 /* PublicNetwork.swift */,
@@ -352,6 +360,7 @@
 				9589ED5C247ECB7C054A3032 /* Interfaces */,
 				EC7DB56A76F46D0833767AAE /* MenuBar */,
 				D6CA3FC7D278AE3CF0DA9DC4 /* Neighbors */,
+				C9910620FCE7EE21F0B1BC86 /* Nmap */,
 				148763E50981AFE850865E0F /* Overview */,
 				CEE1A0A0462CAC620D09D4EC /* Ping */,
 				F1086E1E2CF9BD0E40EE7BA7 /* Ports */,
@@ -361,6 +370,14 @@
 				199010927A3B1AF8CB179EA4 /* WiFi */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		C9910620FCE7EE21F0B1BC86 /* Nmap */ = {
+			isa = PBXGroup;
+			children = (
+				CCE112A0803D11097E4824BD /* NmapView.swift */,
+			);
+			path = Nmap;
 			sourceTree = "<group>";
 		};
 		CEE1A0A0462CAC620D09D4EC /* Ping */ = {
@@ -531,6 +548,7 @@
 				BD60608DB86ABD626A8F708F /* DNSClient.swift in Sources */,
 				5C58585DBCBC949FDBD6D1C1 /* DNSMessage.swift in Sources */,
 				D9B6F3DF9369C7732389090D /* DNSView.swift in Sources */,
+				CA14CD0AAE27494C6B133927 /* Diagnostics.swift in Sources */,
 				E0EEAFD69907B374D9A84B8A /* Formatters.swift in Sources */,
 				B67AF897C2651BFF292BFFD7 /* GeoIP.swift in Sources */,
 				49A18E4B2A3CEBEE8D872FF9 /* GeoMath.swift in Sources */,
@@ -553,6 +571,8 @@
 				C8F41CC84F4D9D41665FE900 /* Neighbors.swift in Sources */,
 				894179A7F81ED89C40167AD9 /* NeighborsView.swift in Sources */,
 				032B0FDF0551C2A19F67FA21 /* NetLensApp.swift in Sources */,
+				09BCC46452539010D29C080C /* Nmap.swift in Sources */,
+				22275D0364F871A511A7D627 /* NmapView.swift in Sources */,
 				16A1A1E565362263064C8D9D /* OverviewView.swift in Sources */,
 				33D658C32B166B570D0A8B6B /* PacketDecoder.swift in Sources */,
 				326E0107A29688FBE3F57F19 /* PingMonitor.swift in Sources */,
@@ -629,7 +649,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -648,7 +668,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -712,7 +732,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -725,7 +745,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

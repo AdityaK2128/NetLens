@@ -43,6 +43,19 @@ enum SystemNetwork {
         return st
     }
 
+    /// The IPv4 router of the service bound to `interface` (e.g. the Wi-Fi's own router
+    /// while a VPN tunnel is the primary interface and owns the global "Router").
+    static func router(forInterface interface: String) -> String? {
+        guard let store = SCDynamicStoreCreate(nil, "NetLens.router" as CFString, nil, nil),
+              let keys = SCDynamicStoreCopyKeyList(store, "State:/Network/Service/[^/]+/IPv4" as CFString) as? [String] else { return nil }
+        for k in keys {
+            guard let v = SCDynamicStoreCopyValue(store, k as CFString) as? [String: Any],
+                  v["InterfaceName"] as? String == interface else { continue }
+            if let r = v["Router"] as? String { return r }
+        }
+        return nil
+    }
+
     private static func describeProxies(_ p: [String: Any]) -> [String] {
         var out: [String] = []
         func add(_ enableKey: String, _ hostKey: String, _ portKey: String, _ label: String) {

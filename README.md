@@ -6,7 +6,7 @@
 
 <p align="center">
   A native macOS app that shows everything about your network — and explains it.<br>
-  ping · traceroute · netstat · DNS · ARP · ports · routing · Wi-Fi · packet capture · per-app bandwidth limits · a live 3D globe of where your traffic goes.
+  ping · traceroute · netstat · DNS · ARP · ports · routing · Wi-Fi · packet capture · nmap · per-app bandwidth limits · a live 3D globe of where your traffic goes.
 </p>
 
 ---
@@ -18,14 +18,15 @@
 | **Overview** | Your whole path to the Internet: this Mac → Wi-Fi link → router → ISP (with NAT / CGNAT detection) → backbone networks → any destination, with the latency each segment adds and how close the route is to the speed-of-light minimum. |
 | **Globe** | A Metal-rendered globe of every remote host your Mac is talking to, arcs coloured by the *measured* TCP round-trip time, thickness by throughput, plus a live day/night line. Anycast addresses (servers that answer faster than light could travel to their listed location) are detected and listed separately instead of being drawn in the wrong place. |
 | **Connections** | Every socket, per app, with the kernel's own TCP statistics: smoothed RTT, retransmits, windows, congestion control, service class. Traffic relayed by VPN "threat protection" proxies is credited back to the app that made it. |
-| **Bandwidth** | Cap download and upload speed **per app** (e.g. keep a big Chrome download from starving your calls). Uses the kernel's dummynet shaper via a small optional helper. |
+| **Bandwidth** | Cap download and upload speed **per app** (e.g. keep a big Chrome download from starving your calls). Uses the kernel's dummynet shaper via a small optional helper, and confirms each cap against the kernel's packet counters instead of just assuming it works. |
 | **Listening ports** | What's accepting connections, and whether it's reachable from your network or only from this Mac. |
 | **Ping** | Multi-target latency monitor with jitter, loss, a voice-call quality score (MOS), and OS/hop-distance hints from reply TTLs. Works even when your router ignores ping. |
 | **Traceroute** | Parallel, mtr-style traceroute with ASN, location and reverse DNS for every hop, plus plain-English notes (Internet exchanges, long-haul links, loss that isn't real). |
 | **DNS** | A `dig`-like workbench over UDP, TCP, DNS-over-TLS and DNS-over-HTTPS, DNSSEC, a resolver race, and a root-to-answer delegation walk. |
 | **HTTP & TLS** | Cold-request timing waterfall (DNS, TCP, TLS, TTFB, download), HTTP/2 vs HTTP/3, certificate chain, CDN and security-header detection. |
 | **Speed & quality** | Apple's `networkQuality` test with responsiveness (RPM) and bufferbloat explained. |
-| **Interfaces · Wi-Fi · Routing · LAN** | 64-bit interface counters and what every `utun`/`awdl` interface is for, DHCP lease, Wi-Fi signal/noise/SNR history and a channel spectrum with a least-congested-channel suggestion, the routing table with a "which route would this take?" tool, and LAN devices from ARP/NDP, Bonjour and a subnet sweep. |
+| **Interfaces · Wi-Fi · Routing · LAN** | 64-bit interface counters and what every `utun`/`awdl` interface is for, DHCP lease, Wi-Fi signal/noise/SNR history and a channel spectrum with a least-congested-channel suggestion, the routing table with a "which route would this take?" tool, and LAN devices from a ping-and-probe subnet sweep, ARP/NDP and Bonjour. |
+| **Nmap scanner** | A front end for [nmap](https://nmap.org): presets from a host sweep to service/version and OS detection, live progress, results as host and port tables (versions, OS guesses, NSE script output), XML export, and the exact command for every scan so you can learn it. If nmap is missing it offers a one-click Homebrew install or step-by-step instructions. |
 | **Packet capture** | A Wireshark-lite: BPF capture, display filters, a decoded field tree with hex view (Ethernet, ARP, IPv4/6, TCP, UDP, ICMP, DNS, TLS ClientHello SNI/ALPN, QUIC, HTTP, DHCP…), and `.pcap` export. |
 
 Every piece of jargon has a small ⓘ next to it with a two-sentence explanation.
@@ -46,9 +47,10 @@ NetLens runs entirely on your Mac and only asks for what a feature needs.
 
 | Permission | When | Why |
 | --- | --- | --- |
-| **Local Network** | first launch | Lets NetLens see your router (MAC address, NAT-PMP), Bonjour devices and the ARP table. macOS hides all of these otherwise. |
+| **Local Network** | first launch | Lets NetLens ping and probe devices on your network, talk to your router (NAT-PMP) and see Bonjour devices. macOS blocks all of these otherwise. |
 | **Location** | only if you click *Show network name* | macOS reveals the Wi-Fi network name (SSID) only to apps with Location access. NetLens never reads or stores your location. |
-| **Administrator password** | only if you enable bandwidth caps or packet capture | Installs a small helper (`/Library/PrivilegedHelperTools/app.netlens.shaper`) — see below. |
+| **Administrator password** | only if you install the helper (bandwidth caps, packet capture, MAC addresses of LAN devices) | Installs a small helper (`/Library/PrivilegedHelperTools/app.netlens.shaper`) — see below. |
+| **Administrator password** | each nmap scan you choose to run as administrator (OS detection, UDP, SYN scans) | nmap needs root to craft raw packets; NetLens runs it through the standard macOS prompt and never stores your password. |
 
 ### Network requests NetLens makes
 
@@ -59,12 +61,14 @@ NetLens runs entirely on your Mac and only asks for what a feature needs.
 
 ### The privileged helper
 
-Bandwidth caps need the kernel's packet scheduler, and packet capture needs `/dev/bpf*` — both require root. The helper is deliberately tiny ([`ShaperHelper/main.swift`](ShaperHelper/main.swift)):
+Bandwidth caps need the kernel's packet scheduler, packet capture needs `/dev/bpf*`, and recent macOS versions only show the ARP table (other devices' MAC addresses) to system services — all of which require root. The helper is deliberately tiny ([`ShaperHelper/main.swift`](ShaperHelper/main.swift)):
 
 - It listens on a Unix socket and only accepts connections from the user who installed it (checked with `getpeereid`).
 - It accepts only validated integers (port numbers, rates, ids) — never shell text — and turns them into `dnctl` pipes and `pfctl` rules in its own anchor (`com.apple/250.NetLensShaper`).
 - If NetLens stops checking in for 30 seconds, the helper removes every limit, so a crashed app can never leave you throttled.
+- It never edits your main firewall ruleset. If that ruleset has lost macOS's stock anchors it restores `/etc/pf.conf` (what macOS loads at boot); if another app (a VPN kill switch, a firewall) has replaced it, the helper leaves it alone and NetLens tells you caps can't apply.
 - For capture it opens a BPF device and passes the file descriptor back over the socket; it keeps nothing.
+- For the LAN view it returns the output of `arp -an`.
 - Uninstall from the Bandwidth tab, or: `sudo launchctl bootout system/app.netlens.shaper && sudo rm /Library/LaunchDaemons/app.netlens.shaper.plist /Library/PrivilegedHelperTools/app.netlens.shaper`.
 
 ## Build from source
@@ -97,9 +101,11 @@ NetLens uses only public macOS facilities and the command-line tools that ship w
 | Wi-Fi | CoreWLAN |
 | DNS | a built-in RFC 1035 / EDNS / DNSSEC / SVCB codec over BSD sockets and Network.framework |
 | HTTP timing & certificates | `URLSessionTaskMetrics`, `SecTrust` |
-| Routes, ARP, NDP, DHCP, speed test | `netstat`, `route`, `arp`, `ndp`, `ipconfig`, `networkQuality` |
+| Routes, DHCP, speed test | `netstat`, `route`, `ipconfig`, `networkQuality` |
+| LAN devices | ICMP + TCP-connect sweep, routing-socket ARP/NDP (`arp -an` via the helper when macOS hides it), Bonjour |
 | Bandwidth caps | dummynet (`dnctl`) + `pf` via the helper |
 | Packet capture | BPF (`/dev/bpf*`) |
+| Nmap scanner | your installed `nmap` (`-oX` XML parsed live), as you or as root via the admin prompt |
 | Globe | Metal, shaders compiled at runtime from [`GlobeShaders.msl`](NetLens/Features/Globe/GlobeShaders.msl) |
 
 ```

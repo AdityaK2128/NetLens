@@ -29,6 +29,8 @@ struct LANDevice: Identifiable, Hashable {
     var isSelf = false
     var randomizedMAC = false
     var model: String?
+    /// How NetLens learned about the device: "ARP", "ping", "tcp/443", "Bonjour"…
+    var seenBy: [String] = []
 
     var kind: (String, String) {
         let t = Set(services.map(\.shortType))
@@ -152,15 +154,21 @@ final class BonjourScanner: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
 }
 
 enum SubnetSweep {
-    /// ICMP-echo every host in the local IPv4 subnet (capped at 1024 hosts). Also has
-    /// the side-effect of populating the ARP cache, so firewalled hosts appear too.
-    static func run(address: String, netmask: String, progress: @escaping @MainActor (Double) -> Void) async -> [String: Double] {
-        guard let a = IP.v4Value(address), let m = IP.v4Value(netmask) else { return [:] }
-        let net = a & m
-        let bcast = net | ~m
-        guard bcast > net + 1, bcast - net <= 1025 else { return [:] }
-        let hosts = (net + 1..<bcast).filter { $0 != a }.map(IP.v4String)
-        var results: [String: Double] = [:]
+    struct Hit: Hashable {
+        let rtt: Double
+        let method: String     // "ping" or "tcp/443"
+    }
+
+    /// TCP ports that most devices either accept or actively refuse — both prove the
+    /// host is there, even when it ignores ping (routers, phones, Windows PCs).
+    static let probePorts: [UInt16] = [80, 443, 22, 445, 62078]
+
+    /// Finds live hosts in the local IPv4 subnet (capped at 1024 addresses): an ICMP echo
+    /// to every address, then a quick TCP probe of the ones that stayed silent.
+    static func run(address: String, netmask: String, progress: @escaping @MainActor (Double) -> Void) async -> [String: Hit] {
+        let hosts = addresses(address: address, netmask: netmask)
+        guard !hosts.isEmpty else { return [:] }
+        var results: [String: Hit] = [:]
         var done = 0
         let batch = 48
         for chunk in stride(from: 0, to: hosts.count, by: batch) {
@@ -168,13 +176,94 @@ enum SubnetSweep {
             await withTaskGroup(of: (String, Double?).self) { g in
                 for h in slice { g.addTask { (h, await Pinger.shared.ping(h, timeout: 0.9, payloadSize: 16).rtt) } }
                 for await (h, rtt) in g {
-                    if let rtt { results[h] = rtt }
+                    if let rtt { results[h] = Hit(rtt: rtt, method: "ping") }
                     done += 1
                 }
             }
-            let p = Double(done) / Double(hosts.count)
-            await progress(p)
+            await progress(0.5 * Double(done) / Double(hosts.count))
         }
+        let silent = hosts.filter { results[$0] == nil }
+        let tcpBatch = 24
+        for chunk in stride(from: 0, to: silent.count, by: tcpBatch) {
+            let slice = Array(silent[chunk..<min(silent.count, chunk + tcpBatch)])
+            for (h, hit) in await tcpProbe(slice, ports: probePorts, timeout: 1.2) { results[h] = hit }
+            await progress(0.5 + 0.5 * Double(min(silent.count, chunk + tcpBatch)) / Double(silent.count))
+        }
+        await progress(1)
         return results
+    }
+
+    /// Every host address in the subnet except our own.
+    static func addresses(address: String, netmask: String) -> [String] {
+        guard let a = IP.v4Value(address), let m = IP.v4Value(netmask) else { return [] }
+        let net = a & m
+        let bcast = net | ~m
+        guard bcast > net + 1, bcast - net <= 1025 else { return [] }
+        return (net + 1..<bcast).filter { $0 != a }.map(IP.v4String)
+    }
+
+    /// Non-blocking connects to every (host, port) pair at once. A completed handshake
+    /// or a refusal (RST) both mean "someone is home"; silence means nothing.
+    static func tcpProbe(_ hosts: [String], ports: [UInt16], timeout: Double) async -> [String: Hit] {
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                cont.resume(returning: tcpProbeSync(hosts, ports: ports, timeout: timeout))
+            }
+        }
+    }
+
+    private static func tcpProbeSync(_ hosts: [String], ports: [UInt16], timeout: Double) -> [String: Hit] {
+        struct Probe { let fd: Int32; let host: String; let port: UInt16 }
+        var probes: [Probe] = []
+        let start = DispatchTime.now().uptimeNanoseconds
+        for h in hosts {
+            var sin = sockaddr_in()
+            sin.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            sin.sin_family = sa_family_t(AF_INET)
+            guard inet_pton(AF_INET, h, &sin.sin_addr) == 1 else { continue }
+            for port in ports {
+                let fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+                guard fd >= 0 else { continue }
+                _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+                var one: Int32 = 1
+                setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+                var linger = Darwin.linger(l_onoff: 1, l_linger: 0)   // close with RST, no TIME_WAIT
+                setsockopt(fd, SOL_SOCKET, SO_LINGER, &linger, socklen_t(MemoryLayout<Darwin.linger>.size))
+                sin.sin_port = port.bigEndian
+                let r = withUnsafePointer(to: &sin) { p in
+                    p.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+                }
+                if r == 0 || errno == EINPROGRESS || errno == ECONNREFUSED {
+                    probes.append(Probe(fd: fd, host: h, port: port))
+                } else {
+                    close(fd)
+                }
+            }
+        }
+        defer { probes.forEach { close($0.fd) } }
+
+        var hits: [String: Hit] = [:]
+        var pending = Set(probes.indices)
+        let deadline = start + UInt64(timeout * 1e9)
+        while !pending.isEmpty {
+            let now = DispatchTime.now().uptimeNanoseconds
+            guard now < deadline else { break }
+            let order = Array(pending)
+            var fds = order.map { pollfd(fd: probes[$0].fd, events: Int16(POLLOUT), revents: 0) }
+            let n = poll(&fds, nfds_t(fds.count), Int32((deadline - now) / 1_000_000) + 1)
+            guard n > 0 else { break }
+            let ms = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e6
+            for (k, pfd) in fds.enumerated() where pfd.revents != 0 {
+                let i = order[k]
+                pending.remove(i)
+                var err: Int32 = 0
+                var len = socklen_t(MemoryLayout<Int32>.size)
+                getsockopt(pfd.fd, SOL_SOCKET, SO_ERROR, &err, &len)
+                guard err == 0 || err == ECONNREFUSED else { continue }
+                let p = probes[i]
+                if hits[p.host] == nil { hits[p.host] = Hit(rtt: ms, method: "tcp/\(p.port)") }
+            }
+        }
+        return hits
     }
 }

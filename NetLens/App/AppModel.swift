@@ -8,7 +8,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
     case connections, bandwidth, ports
     case ping, traceroute, dns, http, speed
     case interfaces, wifi, routing, neighbors
-    case capture
+    case capture, nmap
 
     var id: String { rawValue }
 
@@ -29,6 +29,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
         case .routing: "Routing Table"
         case .neighbors: "LAN & Neighbors"
         case .capture: "Packet Capture"
+        case .nmap: "Nmap Scanner"
         }
     }
 
@@ -49,6 +50,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
         case .routing: "signpost.right.and.left"
         case .neighbors: "house"
         case .capture: "waveform.badge.magnifyingglass"
+        case .nmap: "scope"
         }
     }
 
@@ -57,7 +59,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
         ("Live", [.connections, .bandwidth, .ports]),
         ("Diagnose", [.ping, .traceroute, .dns, .http, .speed]),
         ("Local network", [.interfaces, .wifi, .routing, .neighbors]),
-        ("Capture", [.capture]),
+        ("Advanced", [.capture, .nmap]),
     ]
 }
 
@@ -92,6 +94,7 @@ final class AppModel {
     let pathTrace = TraceSession()
     let shaper = BandwidthShaper()
     let names = NameCache()
+    let nmap = NmapScanner()
 
     /// Cross-screen hand-off: "trace this", "ping that", "look this up".
     var pendingTarget: [NavSection: String] = [:]
@@ -123,6 +126,14 @@ final class AppModel {
     var physicalInterface: NetInterface? {
         if let p = primaryInterface, p.kind == .wifi || p.kind == .ethernet { return p }
         return interfaces.first { ($0.kind == .wifi || $0.kind == .ethernet) && $0.isActive && !$0.ipv4.isEmpty }
+    }
+
+    /// The router on the physical LAN. Under a VPN the global router is the tunnel's
+    /// far end (e.g. 10.x.0.1), which is not a device on your network.
+    var lanRouter: String? {
+        guard let p = physicalInterface else { return net.router }
+        if p.name == net.primaryInterface { return net.router }
+        return SystemNetwork.router(forInterface: p.name)
     }
 
     func bootstrap() {
@@ -163,6 +174,7 @@ final class AppModel {
         }
         Task { await refreshPublic() }
         Task { await checkLocalNetwork() }
+        Diagnostics.runIfRequested(self)
     }
 
     func checkLocalNetwork() async {
@@ -204,7 +216,8 @@ final class AppModel {
 
     private func refreshGatewayMAC() async {
         guard let gw = net.router else { gatewayMAC = nil; return }
-        let table = await Neighbors.arp()
+        var table = await Neighbors.arp()
+        if !table.contains(where: { $0.mac != nil }) { table = await Neighbors.arpViaHelper() ?? [] }
         gatewayMAC = table.first { $0.ip == gw && $0.mac != nil }?.mac
     }
 

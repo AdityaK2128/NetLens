@@ -49,7 +49,7 @@ struct BandwidthView: View {
             }
 
             Callout(kind: .info, title: "How the limits work",
-                    message: "NetLens watches which local ports each app owns (refreshed every 2 s) and hands them to its helper, which steers those packets through a kernel dummynet pipe sized to your cap — the same machinery behind Apple's Network Link Conditioner. Downloads are paced by delaying inbound packets so TCP/QUIC slows its sender; uploads are queued on the way out. Traffic inside a VPN tunnel is shaped before encryption. A new connection is caught within one refresh. If NetLens quits, the helper removes every limit within 30 seconds.")
+                    message: "NetLens watches which local ports each app owns (refreshed every 2 s) and hands them to its helper, which steers those packets through a kernel dummynet pipe sized to your cap — the same machinery behind Apple's Network Link Conditioner. Downloads are paced by delaying inbound packets so TCP/QUIC slows its sender; uploads are queued on the way out. Traffic inside a VPN tunnel is shaped before encryption. A new connection is caught within one refresh, and each cap is confirmed against the pipe's packet counters. If NetLens quits, the helper removes every limit within 30 seconds.")
         }
     }
 
@@ -100,11 +100,16 @@ private struct HelperCard: View {
                 Button(shaper.busy ? "Installing…" : "Install helper…") { Task { await shaper.install() } }
                     .buttonStyle(.borderedProminent)
                     .disabled(shaper.busy)
+            case .outdated:
+                Button(shaper.busy ? "Updating…" : "Update helper…") { Task { await shaper.install() } }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(shaper.busy)
             case .running:
                 Toggle("Pause all limits", isOn: $shaper.paused).toggleStyle(.switch).controlSize(.small)
                     .font(.system(size: 12))
                 Menu {
                     Button("Remove all limits") { shaper.removeAll() }
+                    Button("Reinstall helper…") { Task { await shaper.install() } }
                     Divider()
                     Button("Uninstall helper…", role: .destructive) { Task { await shaper.uninstall() } }
                 } label: {
@@ -121,23 +126,43 @@ private struct HelperCard: View {
         .background(PanelBackground())
     }
 
+    private var notTakingEffect: Int { shaper.enforcement.values.filter { $0 == .notMatching }.count }
+    private var enforcing: Int { shaper.enforcement.values.filter { $0 == .enforcing }.count }
+
+    private var problem: Bool {
+        switch shaper.helper {
+        case .running: !shaper.paused && (!shaper.attached || notTakingEffect > 0)
+        case .outdated: true
+        default: false
+        }
+    }
+
     private var color: Color {
         switch shaper.helper {
-        case .running: shaper.paused ? Theme.warn : Theme.good
-        case .error: Theme.coral
+        case .running: problem || shaper.paused ? Theme.warn : Theme.good
+        case .outdated: Theme.warn
+        case .error: Theme.bad
         default: Theme.secondary
         }
     }
     private var icon: String {
         switch shaper.helper {
-        case .running: "checkmark.shield"
+        case .running: problem ? "exclamationmark.shield" : "checkmark.shield"
+        case .outdated: "arrow.triangle.2.circlepath"
         case .error: "exclamationmark.shield"
         default: "lock.shield"
         }
     }
     private var title: String {
         switch shaper.helper {
-        case .running(let n): shaper.paused ? "Shaper paused — limits lifted" : n > 0 ? "Shaper active · \(n) app\(n == 1 ? "" : "s") capped right now" : "Shaper ready"
+        case .running(let n):
+            if shaper.paused { "Shaper paused — limits lifted" }
+            else if n > 0 && !shaper.attached { "Caps can't take effect" }
+            else if notTakingEffect > 0 { "\(notTakingEffect) cap\(notTakingEffect == 1 ? " isn't" : "s aren't") taking effect" }
+            else if enforcing > 0 { "Shaper active · enforcing \(enforcing) cap\(enforcing == 1 ? "" : "s")" }
+            else if n > 0 { "Shaper ready · \(n) cap\(n == 1 ? "" : "s") waiting for traffic" }
+            else { "Shaper ready" }
+        case .outdated: "Helper update needed"
         case .error(let e): "Shaper problem: \(e)"
         case .notInstalled: "Enable the traffic shaper"
         case .unknown: "Checking shaper…"
@@ -145,7 +170,16 @@ private struct HelperCard: View {
     }
     private var message: String {
         switch shaper.helper {
-        case .running: "Kernel dummynet pipes are in place for every capped app with open sockets. Caps you set are remembered."
+        case .running(let n):
+            if n > 0 && !shaper.attached {
+                shaper.attachProblem ?? "The system firewall isn't evaluating NetLens's rules."
+            } else if notTakingEffect > 0 {
+                "The app is moving data but none of it passes through its pipe. Usually this means the traffic leaves through a path NetLens can't attribute to the app yet; it is retried every 2 seconds."
+            } else {
+                "Each cap is checked against the kernel's own packet counters, so “enforcing” means packets really are being paced. Caps you set are remembered."
+            }
+        case .outdated(let v):
+            "NetLens was updated, but the installed helper is version \(v). Caps won't apply until it's updated — it takes your admin password once."
         case .error: "The privileged helper isn't answering. Reinstalling usually fixes it."
         default: "Shaping happens in the kernel, so it needs a small privileged helper, installed once with your admin password. It accepts only port numbers and rates from NetLens, and removes every limit if NetLens quits."
         }
@@ -167,9 +201,7 @@ private struct AppBandwidthRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(app.name).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.ink).lineLimit(1)
-                        if limit.isActive {
-                            Chip(text: "Capped", color: Theme.amber, filled: true)
-                        }
+                        if limit.isActive { capChip }
                     }
                     Text(app.pids.isEmpty ? "not running" : "\(app.pids.count) process\(app.pids.count == 1 ? "" : "es") · \(app.sockets) sockets · \(app.shapedPorts.count) ports")
                         .font(.mono(10))
@@ -204,6 +236,27 @@ private struct AppBandwidthRow: View {
                 .frame(width: 130, alignment: .leading)
         }
         .padding(.vertical, 9)
+    }
+
+    @ViewBuilder private var capChip: some View {
+        let shaper = model.shaper
+        if !shaper.isReady {
+            Chip(text: "Cap saved", color: Theme.secondary).help("Applies once the helper is installed and running.")
+        } else if shaper.paused {
+            Chip(text: "Paused", color: Theme.secondary)
+        } else {
+            switch shaper.enforcement[app.id] {
+            case .enforcing:
+                Chip(text: "Enforced", color: Theme.accent, filled: true)
+                    .help("The kernel is pacing this app's packets" + (shaper.shapedBytes[app.id].map { " · \(Fmt.bytes(Double($0))) through its pipe so far" } ?? ""))
+            case .notMatching:
+                Chip(text: "Not taking effect", color: Theme.warn)
+                    .help("This app is moving data, but none of it reaches its pipe.")
+            default:
+                Chip(text: "Capped", color: Theme.secondary)
+                    .help(app.pids.isEmpty ? "Applies when the app next runs." : "Applies as soon as the app sends or receives data.")
+            }
+        }
     }
 
     private func rate(_ arrow: String, _ v: Double, _ c: Color, cap: Int) -> some View {

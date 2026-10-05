@@ -11,7 +11,8 @@ enum Glossary: String, CaseIterable, Identifiable {
     case rpm, bufferbloat
     case retransmits, congestionControl, tcpWindow, trafficClass, transparentProxy
     case listeningExposure, ecmp, privateHop, mtu, linkLocal, privateMAC, dhcp
-    case bonjour, arp, routeLookup, bandwidthCaps, bpf, captureFilter, socketStates
+    case bonjour, arp, routeLookup, bandwidthCaps, bpf, captureFilter, socketStates, clientIsolation
+    case portStates, nmapTiming, osDetection
 
     var id: String { rawValue }
 
@@ -77,6 +78,10 @@ enum Glossary: String, CaseIterable, Identifiable {
         case .bpf: "Packet capture (BPF)"
         case .captureFilter: "Filter syntax"
         case .socketStates: "Connection states"
+        case .clientIsolation: "Client isolation"
+        case .portStates: "Open, closed, filtered"
+        case .nmapTiming: "Timing templates"
+        case .osDetection: "Service & OS detection"
         }
     }
 
@@ -191,11 +196,19 @@ enum Glossary: String, CaseIterable, Identifiable {
         case .bonjour:
             "Apple's zero-configuration networking: devices announce services (AirPlay, printers, file sharing…) on the local network with multicast DNS, no setup needed."
         case .arp:
-            "The table mapping IP addresses on your local network to hardware (MAC) addresses — ARP for IPv4, Neighbor Discovery for IPv6. Every device you've recently exchanged packets with appears here."
+            "The table mapping IP addresses on your local network to hardware (MAC) addresses — ARP for IPv4, Neighbor Discovery for IPv6. Every device you've recently exchanged packets with appears here. Recent macOS versions hide it from apps; NetLens reads it through its helper when installed."
+        case .portStates:
+            "Open: a program accepted the connection. Closed: the host answered but nothing is listening. Filtered: no answer at all — a firewall dropped the probe, so nmap can't tell what's behind it."
+        case .nmapTiming:
+            "How hard nmap pushes: Polite (T2) waits between probes so it won't disturb fragile devices or trip alarms, Normal (T3) is nmap's default, Aggressive (T4) assumes a fast, reliable network and is what most people use on a LAN."
+        case .osDetection:
+            "Version detection (-sV) talks to each open port and matches the replies against thousands of known services. OS detection (-O) sends unusual packets and compares how the TCP/IP stack reacts with a database of fingerprints; it needs administrator rights to craft those packets."
+        case .clientIsolation:
+            "Many campus, office, hotel and apartment Wi-Fi networks stop connected devices from talking to each other: the access point only forwards traffic between each device and the router. Everyone is online, but from your Mac the network looks almost empty — that's a security feature, not a scanning problem."
         case .routeLookup:
             "Asks the kernel which route it would actually use for a destination. The most specific match wins, which is how VPNs steer only some traffic into their tunnel."
         case .bandwidthCaps:
-            "NetLens tracks which ports each app is using and passes them to its helper, which steers those packets through a kernel dummynet pipe with the speed you choose — the engine behind Apple's Network Link Conditioner. Limits are removed automatically if NetLens quits."
+            "NetLens tracks which ports each app is using and passes them to its helper, which steers those packets through a kernel dummynet pipe with the speed you choose — the engine behind Apple's Network Link Conditioner. The pipe's own packet counters confirm each cap is really being applied. Limits are removed automatically if NetLens quits."
         case .bpf:
             "The Berkeley Packet Filter is the kernel tap that tcpdump and Wireshark use to copy packets off an interface. It needs administrator permission once."
         case .captureFilter:

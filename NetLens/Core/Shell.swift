@@ -50,10 +50,13 @@ enum Shell {
 
     /// Runs an AppleScript `do shell script … with administrator privileges` — the
     /// standard macOS password prompt. Only ever triggered by an explicit user action.
-    static func runAsAdmin(_ command: String) async -> Result {
+    static func runAsAdmin(_ command: String, timeout: TimeInterval = 120) async -> Result {
         let escaped = command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        return await run("/usr/bin/osascript", ["-e", "do shell script \"\(escaped)\" with administrator privileges"], timeout: 120)
+        return await run("/usr/bin/osascript", ["-e", "do shell script \"\(escaped)\" with administrator privileges"], timeout: timeout)
     }
+
+    /// Quotes one argument for /bin/sh.
+    static func quote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 }
 
 /// Long-running process with line-by-line output (used for tools that stream).
@@ -64,9 +67,10 @@ final class StreamingProcess {
     var onLine: ((String) -> Void)?
     var onExit: ((Int32) -> Void)?
 
-    init(_ path: String, _ args: [String]) {
+    init(_ path: String, _ args: [String], environment: [String: String]? = nil) {
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = args
+        if let environment { process.environment = environment }
     }
 
     func start() throws {
@@ -99,5 +103,10 @@ final class StreamingProcess {
 
     func stop() {
         if process.isRunning { process.terminate() }
+    }
+
+    /// SIGINT — what Ctrl-C sends; tools like nmap finish their output files on it.
+    func interrupt() {
+        if process.isRunning { process.interrupt() }
     }
 }

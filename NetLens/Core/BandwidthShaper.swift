@@ -40,13 +40,30 @@ struct BandwidthLimit: Codable, Hashable {
 @Observable
 final class BandwidthShaper {
     enum HelperState: Equatable {
-        case unknown, notInstalled, running(activeRules: Int), error(String)
+        case unknown, notInstalled, outdated(installed: Int), running(activeRules: Int), error(String)
     }
+
+    /// Whether a cap is demonstrably working, judged from the helper's pipe counters.
+    enum Enforcement: Equatable {
+        case idle          // capped, but the app isn't moving data in that direction
+        case enforcing     // the kernel is steering this app's packets through its pipe
+        case notMatching   // the app is busy, yet nothing reaches the pipe
+    }
+
+    /// The helper version this build of NetLens talks to.
+    nonisolated static let requiredHelperVersion = 3
 
     private(set) var apps: [AppTraffic] = []
     private(set) var history: [String: [RateSample]] = [:]
     private(set) var helper: HelperState = .unknown
     private(set) var busy = false
+    /// False when the system firewall isn't evaluating NetLens's rules at all.
+    private(set) var attached = true
+    /// Why caps can't take effect, in the helper's words.
+    private(set) var attachProblem: String?
+    private(set) var enforcement: [String: Enforcement] = [:]
+    /// Bytes delayed or dropped by each app's pipes since the cap was set.
+    private(set) var shapedBytes: [String: Int] = [:]
     var limits: [String: BandwidthLimit] = [:] {
         didSet { persist(); Task { await push() } }
     }
@@ -58,6 +75,10 @@ final class BandwidthShaper {
     nonisolated static let socketPath = "/var/run/app.netlens.shaper.sock"
 
     @ObservationIgnored private var idMap: [String: Int] = [:]
+    @ObservationIgnored private var pushing = false
+    @ObservationIgnored private var pushAgain = false
+    /// Per app: recent (time, pipe packets, app bytes moved) samples for the verdict.
+    @ObservationIgnored private var evidence: [String: [(Date, Int, Double)]] = [:]
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "bandwidth.limits"),
@@ -68,6 +89,7 @@ final class BandwidthShaper {
     }
 
     var activeLimitCount: Int { limits.values.filter(\.isActive).count }
+    var isReady: Bool { if case .running = helper { return true } else { return false } }
 
     private func persist() {
         if let d = try? JSONEncoder().encode(limits) { UserDefaults.standard.set(d, forKey: "bandwidth.limits") }
@@ -147,27 +169,86 @@ final class BandwidthShaper {
     }
 
     private func push() async {
-        guard case .running = helper else { return }
+        switch helper {
+        case .running, .error: break
+        default: return
+        }
+        // One request in flight at a time; samples arriving meanwhile coalesce.
+        guard !pushing else { pushAgain = true; return }
+        pushing = true
+        defer { pushing = false }
+        repeat {
+            pushAgain = false
+            await pushOnce()
+        } while pushAgain
+    }
+
+    private func pushOnce() async {
         var rules: [[String: Any]] = []
+        var ruleApps: [Int: AppTraffic] = [:]
         if !paused {
             for a in apps {
                 guard let l = limits[a.id], l.isActive, !a.shapedPorts.isEmpty else { continue }
-                rules.append(["id": ruleID(for: a.id), "downKBps": l.downKBps, "upKBps": l.upKBps, "ports": a.shapedPorts.sorted()])
+                let id = ruleID(for: a.id)
+                ruleApps[id] = a
+                rules.append(["id": id, "downKBps": l.downKBps, "upKBps": l.upKBps, "ports": a.shapedPorts.sorted()])
             }
         }
         let resp = await Self.send(["cmd": "apply", "rules": rules])
-        if let resp, resp["ok"] as? Bool == true {
-            helper = .running(activeRules: resp["activeRules"] as? Int ?? rules.count)
-        } else if let resp {
-            helper = .error(resp["message"] as? String ?? "helper error")
-        } else {
+        guard let resp else {
             helper = FileManager.default.fileExists(atPath: Self.helperPath) ? .error("helper not responding") : .notInstalled
+            return
         }
+        let version = resp["version"] as? Int ?? 1
+        if version < Self.requiredHelperVersion {
+            helper = .outdated(installed: version)
+            return
+        }
+        guard resp["ok"] as? Bool == true else {
+            helper = .error(resp["message"] as? String ?? "helper error")
+            return
+        }
+        helper = .running(activeRules: resp["activeRules"] as? Int ?? rules.count)
+        attached = resp["attached"] as? Bool ?? true
+        attachProblem = attached ? nil : (resp["message"] as? String ?? "The system firewall isn't evaluating NetLens's rules.")
+        judge(counters: resp["counters"] as? [[String: Any]] ?? [], ruleApps: ruleApps)
+    }
+
+    /// A cap is "enforcing" once its pipe has seen packets while the app moved data, and
+    /// "not matching" if the app moved a meaningful amount over ~6 s with no packets in
+    /// the pipe — so the UI never claims a limit that the kernel isn't applying.
+    private func judge(counters: [[String: Any]], ruleApps: [Int: AppTraffic]) {
+        let now = Date()
+        var verdicts: [String: Enforcement] = [:]
+        var shaped: [String: Int] = [:]
+        for c in counters {
+            guard let id = c["id"] as? Int, let app = ruleApps[id], let l = limits[app.id] else { continue }
+            let packets = (l.downKBps > 0 ? c["downPackets"] as? Int ?? 0 : 0) + (l.upKBps > 0 ? c["upPackets"] as? Int ?? 0 : 0)
+            shaped[app.id] = (c["downBytes"] as? Int ?? 0) + (c["upBytes"] as? Int ?? 0)
+            let moved = (l.downKBps > 0 ? app.rateIn : 0) + (l.upKBps > 0 ? app.rateOut : 0)
+            var ev = (evidence[app.id] ?? []).filter { now.timeIntervalSince($0.0) < 8 }
+            ev.append((now, packets, moved))
+            evidence[app.id] = ev
+            guard let first = ev.first else { continue }
+            if packets > first.1 {
+                verdicts[app.id] = .enforcing
+            } else if now.timeIntervalSince(first.0) >= 5, ev.allSatisfy({ $0.2 > 8_192 }) {
+                verdicts[app.id] = .notMatching
+            } else {
+                verdicts[app.id] = enforcement[app.id] == .enforcing && moved > 0 ? .enforcing : .idle
+            }
+        }
+        for k in evidence.keys where verdicts[k] == nil { evidence[k] = nil }
+        if verdicts != enforcement { enforcement = verdicts }
+        if shaped != shapedBytes { shapedBytes = shaped }
     }
 
     func refreshHelperState() async {
         if let resp = await Self.send(["cmd": "status"]), resp["ok"] as? Bool == true {
-            helper = .running(activeRules: resp["activeRules"] as? Int ?? 0)
+            let version = resp["version"] as? Int ?? 1
+            helper = version < Self.requiredHelperVersion ? .outdated(installed: version)
+                                                           : .running(activeRules: resp["activeRules"] as? Int ?? 0)
+            attached = resp["attached"] as? Bool ?? true
         } else {
             helper = FileManager.default.fileExists(atPath: Self.helperPath) ? .error("installed but not responding") : .notInstalled
         }

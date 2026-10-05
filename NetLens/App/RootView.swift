@@ -37,6 +37,7 @@ struct DetailView: View {
             case .routing: RoutingView()
             case .neighbors: NeighborsView()
             case .capture: CaptureView()
+            case .nmap: NmapView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -106,6 +107,8 @@ private struct SidebarRow: View {
             }
         case .wifi:
             if let rssi = model.wifi.rssi { badgeText("\(rssi) dBm", Theme.secondary) }
+        case .nmap:
+            if model.nmap.isRunning { ProgressView().controlSize(.mini) }
         default:
             EmptyView()
         }
