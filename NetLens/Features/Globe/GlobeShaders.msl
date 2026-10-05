@@ -1,0 +1,252 @@
+#include <metal_stdlib>
+using namespace metal;
+
+// Layouts mirror the Swift structs in GlobeRenderer.swift — keep in sync.
+struct Uniforms {
+    float4x4 viewProj;
+    float4x4 model;
+    float4 cameraPos;
+    float2 viewport;
+    float time;
+    float pointScale;
+    float2 globeCenterPx;
+    float globeRadiusPx;
+    float zoom;
+    float4 sunDir;
+    float4 bgColor;
+    float4 oceanColor;
+    float4 landColor;      // rgb + base alpha
+    float4 lineColor;      // rgb + alpha for graticule / rim
+    float4 flags;          // x = dark appearance
+};
+
+struct ArcVertex {
+    float3 pos;
+    float3 next;
+    float t;
+    float side;
+    uint arc;
+    float pad;
+};
+
+struct ArcData {
+    float4 color;
+    float width;
+    float downRate;
+    float upRate;
+    float phase;
+    float intensity;
+    float selected;
+    float2 pad;
+};
+
+struct MarkerData {
+    float3 pos;
+    float4 color;
+    float size;
+    float pulse;
+    float kind;
+    float pad;
+};
+
+// MARK: - Background (full-screen triangle)
+
+struct ScreenOut { float4 position [[position]]; };
+
+vertex ScreenOut atmosphere_vertex(uint vid [[vertex_id]]) {
+    float2 p = float2((vid << 1) & 2, vid & 2);
+    ScreenOut o;
+    o.position = float4(p * 2.0 - 1.0, 0.0, 1.0);
+    return o;
+}
+
+fragment float4 atmosphere_fragment(ScreenOut in [[stage_in]], constant Uniforms& u [[buffer(0)]]) {
+    float d = length(in.position.xy - u.globeCenterPx) / u.globeRadiusPx;
+    float3 c = u.bgColor.rgb;
+    // A very soft contact shadow around the sphere so it sits on the page.
+    if (d > 1.0) {
+        float s = exp(-(d - 1.0) * 14.0);
+        c = u.flags.x > 0.5 ? c + s * 0.025 : c - s * 0.045;
+    }
+    return float4(c, 1.0);
+}
+
+// MARK: - Sphere
+
+struct SphereOut {
+    float4 position [[position]];
+    float3 modelPos;
+    float3 worldNormal;
+    float3 worldPos;
+};
+
+vertex SphereOut sphere_vertex(uint vid [[vertex_id]],
+                               const device float4* verts [[buffer(1)]],
+                               constant Uniforms& u [[buffer(0)]]) {
+    float3 p = verts[vid].xyz;
+    float4 world = u.model * float4(p, 1.0);
+    SphereOut o;
+    o.position = u.viewProj * world;
+    o.modelPos = p;
+    o.worldNormal = normalize(world.xyz);
+    o.worldPos = world.xyz;
+    return o;
+}
+
+fragment float4 sphere_fragment(SphereOut in [[stage_in]], constant Uniforms& u [[buffer(0)]]) {
+    float3 n = normalize(in.worldNormal);
+    float3 v = normalize(u.cameraPos.xyz - in.worldPos);
+    float facing = saturate(dot(n, v));
+    float day = smoothstep(-0.15, 0.2, dot(normalize(in.modelPos), u.sunDir.xyz));
+
+    float3 c = u.oceanColor.rgb * (0.94 + 0.06 * facing);
+    c *= mix(u.flags.x > 0.5 ? 0.82 : 0.95, 1.0, day);
+
+    // Graticule every 30°, anti-aliased.
+    float3 mp = normalize(in.modelPos);
+    float lat = asin(clamp(mp.y, -1.0, 1.0)) * 57.29578;
+    float lon = atan2(mp.x, mp.z) * 57.29578;
+    float2 g = float2(lat, lon) / 30.0;
+    float2 grid = abs(fract(g - 0.5) - 0.5) / max(fwidth(g), 1e-4);
+    float line = 1.0 - min(min(grid.x, grid.y), 1.0);
+    c = mix(c, u.lineColor.rgb, line * u.lineColor.a * facing);
+
+    // Hairline limb.
+    float limb = 1.0 - smoothstep(0.0, 0.06, facing);
+    c = mix(c, u.lineColor.rgb, limb * u.lineColor.a * 2.5);
+    return float4(c, 1.0);
+}
+
+// MARK: - Land dots
+
+struct DotOut {
+    float4 position [[position]];
+    float pointSize [[point_size]];
+    float4 color;
+};
+
+vertex DotOut dots_vertex(uint vid [[vertex_id]],
+                          const device float4* dots [[buffer(1)]],
+                          constant Uniforms& u [[buffer(0)]]) {
+    float3 p = dots[vid].xyz * 1.0015;
+    float4 world = u.model * float4(p, 1.0);
+    float3 n = normalize(world.xyz);
+    float3 v = normalize(u.cameraPos.xyz - world.xyz);
+    float facing = dot(n, v);
+    DotOut o;
+    o.position = u.viewProj * world;
+    float day = smoothstep(-0.15, 0.2, dot(normalize(p), u.sunDir.xyz));
+    float alpha = u.landColor.a * smoothstep(0.0, 0.3, facing) * mix(0.7, 1.0, day);
+    o.color = float4(u.landColor.rgb, alpha);
+    o.pointSize = clamp(1.7 * u.pointScale * u.zoom, 1.0, 6.0);
+    if (facing < 0.0) { o.position = float4(2.0, 2.0, 2.0, 1.0); o.pointSize = 0.0; }
+    return o;
+}
+
+fragment float4 dots_fragment(DotOut in [[stage_in]], float2 pc [[point_coord]]) {
+    float r = length(pc - 0.5);
+    float a = in.color.a * smoothstep(0.5, 0.3, r);
+    if (a < 0.01) discard_fragment();
+    return float4(in.color.rgb * a, a);
+}
+
+// MARK: - Arcs
+
+struct ArcOut {
+    float4 position [[position]];
+    float t;
+    float across;
+    uint arc [[flat]];
+};
+
+vertex ArcOut arc_vertex(uint vid [[vertex_id]],
+                         const device ArcVertex* verts [[buffer(1)]],
+                         const device ArcData* arcs [[buffer(2)]],
+                         constant Uniforms& u [[buffer(0)]]) {
+    ArcVertex av = verts[vid];
+    ArcData ad = arcs[av.arc];
+    float4 c0 = u.viewProj * (u.model * float4(av.pos, 1.0));
+    float4 c1 = u.viewProj * (u.model * float4(av.next, 1.0));
+    float2 s0 = c0.xy / c0.w * u.viewport * 0.5;
+    float2 s1 = c1.xy / c1.w * u.viewport * 0.5;
+    float2 dir = s1 - s0;
+    float len = length(dir);
+    dir = len > 1e-4 ? dir / len : float2(1, 0);
+    float2 normal = float2(-dir.y, dir.x);
+    float width = ad.width * u.pointScale * (ad.selected > 0.5 ? 1.6 : 1.0);
+    ArcOut o;
+    o.position = c0;
+    o.position.xy += normal * width * av.side / (u.viewport * 0.5) * c0.w;
+    o.t = av.t;
+    o.across = av.side;
+    o.arc = av.arc;
+    return o;
+}
+
+fragment float4 arc_fragment(ArcOut in [[stage_in]],
+                             const device ArcData* arcs [[buffer(2)]],
+                             constant Uniforms& u [[buffer(0)]]) {
+    ArcData ad = arcs[in.arc];
+    float edge = 1.0 - smoothstep(0.55, 1.0, abs(in.across));     // crisp, anti-aliased ribbon
+    float base = ad.intensity * (ad.selected > 0.5 ? 0.95 : 0.55);
+
+    // Travelling packets: received flows home (t 1→0), sent flows out.
+    float down = fract(in.t * 2.0 + u.time * 0.3 + ad.phase);
+    float up   = fract(-in.t * 2.0 + u.time * 0.3 + ad.phase * 1.7);
+    float headD = smoothstep(0.86, 0.98, down) * (1.0 - smoothstep(0.98, 1.0, down));
+    float headU = smoothstep(0.86, 0.98, up) * (1.0 - smoothstep(0.98, 1.0, up));
+    float pulse = saturate(headD * ad.downRate + headU * ad.upRate) * ad.intensity;
+
+    float a = saturate(base + pulse * 0.6) * edge;
+    float3 c = ad.color.rgb;
+    if (u.flags.x > 0.5) { c = mix(c, float3(1.0), pulse * 0.5); }
+    return float4(c * a, a);
+}
+
+// MARK: - Markers
+
+struct MarkerOut {
+    float4 position [[position]];
+    float pointSize [[point_size]];
+    float4 color;
+    float pulse;
+    float kind;
+};
+
+vertex MarkerOut marker_vertex(uint vid [[vertex_id]],
+                               const device MarkerData* markers [[buffer(1)]],
+                               constant Uniforms& u [[buffer(0)]]) {
+    MarkerData m = markers[vid];
+    float4 world = u.model * float4(m.pos * 1.004, 1.0);
+    float3 n = normalize(world.xyz);
+    float3 v = normalize(u.cameraPos.xyz - world.xyz);
+    float facing = dot(n, v);
+    MarkerOut o;
+    o.position = u.viewProj * world;
+    o.pointSize = m.size * u.pointScale * mix(0.85, 1.15, saturate(u.zoom - 0.5));
+    o.color = float4(m.color.rgb, m.color.a * smoothstep(-0.05, 0.25, facing));
+    o.pulse = m.pulse;
+    o.kind = m.kind;
+    if (facing < -0.1) { o.position = float4(2.0, 2.0, 2.0, 1.0); o.pointSize = 0.0; }
+    return o;
+}
+
+fragment float4 marker_fragment(MarkerOut in [[stage_in]], float2 pc [[point_coord]],
+                                constant Uniforms& u [[buffer(0)]]) {
+    float r = length(pc - 0.5) * 2.0;
+    float coreR = in.kind > 0.5 ? 0.34 : 0.40;
+    float core = 1.0 - smoothstep(coreR - 0.06, coreR, r);
+    // contrasting border so dots read on any background
+    float border = (1.0 - smoothstep(coreR, coreR + 0.07, r)) - core;
+    float ring = 0.0;
+    if (in.pulse > 0.0) {
+        float ph = fract(u.time * 0.4 + in.pulse);
+        float rr = mix(coreR, 1.0, ph);
+        ring = (1.0 - smoothstep(0.0, 0.05, abs(r - rr))) * (1.0 - ph) * 0.5;
+    }
+    float3 borderColor = u.bgColor.rgb;
+    float3 c = in.color.rgb * core + borderColor * border + in.color.rgb * ring;
+    float a = (core + border + ring) * in.color.a;
+    if (a < 0.01) discard_fragment();
+    return float4(c * in.color.a, a);
+}

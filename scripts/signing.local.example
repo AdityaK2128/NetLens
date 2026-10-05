@@ -1,0 +1,4 @@
+# Copy to scripts/signing.local (git-ignored) and fill in your team ID.
+# Find it with:  security find-identity -v -p codesigning
+NETLENS_TEAM=YOURTEAMID
+# NETLENS_IDENTITY="Apple Development"

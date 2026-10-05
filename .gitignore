@@ -1,0 +1,14 @@
+# Build output
+build/
+dist/
+DerivedData/
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Local signing (your Apple team ID stays on your machine)
+scripts/signing.local
+
+.DS_Store
