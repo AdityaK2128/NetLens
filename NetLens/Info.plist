@@ -37,6 +37,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>NetLens shows nearby Bluetooth Low Energy devices and their signal strength when you start a scan on the Bluetooth screen.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_services._dns-sd._udp</string>

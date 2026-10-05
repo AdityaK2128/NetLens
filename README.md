@@ -6,7 +6,7 @@
 
 <p align="center">
   A native macOS app that shows everything about your network — and explains it.<br>
-  ping · traceroute · netstat · DNS · ARP · ports · routing · Wi-Fi · packet capture · nmap · per-app bandwidth limits · a live 3D globe of where your traffic goes.
+  ping · traceroute · netstat · DNS · ARP · ports · routing · Wi-Fi · Bluetooth · packet capture · nmap · per-app bandwidth limits · a live 3D globe of where your traffic goes.
 </p>
 
 ---
@@ -27,6 +27,7 @@
 | **Speed & quality** | Apple's `networkQuality` test with responsiveness (RPM) and bufferbloat explained. |
 | **Interfaces · Wi-Fi · Routing · LAN** | 64-bit interface counters and what every `utun`/`awdl` interface is for, DHCP lease, Wi-Fi signal/noise/SNR history and a channel spectrum with a least-congested-channel suggestion, the routing table with a "which route would this take?" tool, and LAN devices from a ping-and-probe subnet sweep, ARP/NDP and Bonjour. |
 | **Nmap scanner** | A front end for [nmap](https://nmap.org): presets from a host sweep to service/version and OS detection, live progress, results as host and port tables (versions, OS guesses, NSE script output), XML export, and the exact command for every scan so you can learn it. If nmap is missing it offers a one-click Homebrew install or step-by-step instructions. |
+| **Bluetooth** | The controller (chipset, firmware, supported profiles), every paired device with signal strength, profiles and battery levels (AirPods left / right / case), and a live scan of nearby Bluetooth Low Energy devices: maker, Apple Continuity type (AirPods, Find My, Handoff, iBeacon…), trackers and beacons, with a rough distance. |
 | **Packet capture** | A Wireshark-lite: BPF capture, display filters, a decoded field tree with hex view (Ethernet, ARP, IPv4/6, TCP, UDP, ICMP, DNS, TLS ClientHello SNI/ALPN, QUIC, HTTP, DHCP…), and `.pcap` export. |
 
 Every piece of jargon has a small ⓘ next to it with a two-sentence explanation.
@@ -48,6 +49,7 @@ NetLens runs entirely on your Mac and only asks for what a feature needs.
 | Permission | When | Why |
 | --- | --- | --- |
 | **Local Network** | first launch | Lets NetLens ping and probe devices on your network, talk to your router (NAT-PMP) and see Bonjour devices. macOS blocks all of these otherwise. |
+| **Bluetooth** | only when you start a nearby-device scan | To listen for Bluetooth Low Energy advertisements. Paired devices and battery levels need no permission. NetLens never connects to or pairs with anything. |
 | **Location** | only if you click *Show network name* | macOS reveals the Wi-Fi network name (SSID) only to apps with Location access. NetLens never reads or stores your location. |
 | **Administrator password** | only if you install the helper (bandwidth caps, packet capture, MAC addresses of LAN devices) | Installs a small helper (`/Library/PrivilegedHelperTools/app.netlens.shaper`) — see below. |
 | **Administrator password** | each nmap scan you choose to run as administrator (OS detection, UDP, SYN scans) | nmap needs root to craft raw packets; NetLens runs it through the standard macOS prompt and never stores your password. |
@@ -99,6 +101,7 @@ NetLens uses only public macOS facilities and the command-line tools that ship w
 | Interfaces & counters | `getifaddrs`, `sysctl(NET_RT_IFLIST2)` 64-bit counters, SystemConfiguration |
 | Network changes, DNS servers, proxies | `SCDynamicStore` |
 | Wi-Fi | CoreWLAN |
+| Bluetooth | `system_profiler SPBluetoothDataType` (paired devices, batteries), CoreBluetooth (nearby scan) |
 | DNS | a built-in RFC 1035 / EDNS / DNSSEC / SVCB codec over BSD sockets and Network.framework |
 | HTTP timing & certificates | `URLSessionTaskMetrics`, `SecTrust` |
 | Routes, DHCP, speed test | `netstat`, `route`, `ipconfig`, `networkQuality` |

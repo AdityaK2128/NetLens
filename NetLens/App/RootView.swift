@@ -34,6 +34,7 @@ struct DetailView: View {
             case .speed: SpeedTestView()
             case .interfaces: InterfacesView()
             case .wifi: WiFiView()
+            case .bluetooth: BluetoothView()
             case .routing: RoutingView()
             case .neighbors: NeighborsView()
             case .capture: CaptureView()

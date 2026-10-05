@@ -42,6 +42,7 @@
 		6B01397F12D10B978E48BD7D /* Glossary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3F8376372F8269E632C43E /* Glossary.swift */; };
 		6CFD8EF36E5247646F1DBABD /* GlobeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05F9B638447248A6BBA944A /* GlobeRenderer.swift */; };
 		7717A09EF4AB25250B4DA267 /* WiFi.swift in Sources */ = {isa = PBXBuildFile; fileRef = D996A3BEA6D596FAE81805DB /* WiFi.swift */; };
+		8606937978B7597AAA0F0F7F /* BluetoothView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A3040A5B74AE376966FCABB /* BluetoothView.swift */; };
 		894179A7F81ED89C40167AD9 /* NeighborsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E7B6C3C49D8B2832EB995B /* NeighborsView.swift */; };
 		89673914E939AA10BEED5157 /* LocalNetworkAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C07490D907FC72ABA04E40D /* LocalNetworkAccess.swift */; };
 		8B000FD264F4D7DDB42E6CF4 /* ConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68ED7AB1CB6C48C81EF21AD0 /* ConnectionsView.swift */; };
@@ -69,6 +70,7 @@
 		ECC97C27244C8700592385A2 /* LandMask.swift in Sources */ = {isa = PBXBuildFile; fileRef = B62D921F69D415BC8C20E6E3 /* LandMask.swift */; };
 		F6046FE9B42F38B14DF33355 /* GlobeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C8EECE1938EAFD169964233 /* GlobeScreen.swift */; };
 		F74EE8CC0F65C838390F1136 /* ICMP.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4DB61BF078645AEF21EB54C /* ICMP.swift */; };
+		FD243B4ECD6212BBE539C737 /* Bluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D5FBC9BC43B8F9BAD13ED7 /* Bluetooth.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,12 +103,14 @@
 		04AB1C21090475AB20E45170 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		0674BCDC304F60AD1DDB3DA0 /* HTTPProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPProbe.swift; sourceTree = "<group>"; };
 		0873F92545E868AAD13182A8 /* Traceroute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Traceroute.swift; sourceTree = "<group>"; };
+		0A3040A5B74AE376966FCABB /* BluetoothView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothView.swift; sourceTree = "<group>"; };
 		0B1AAA2A7BB6016C97FE1D49 /* InterfacesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterfacesView.swift; sourceTree = "<group>"; };
 		17A63D296F8CB4838D75A2A5 /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
 		18A57BA8AA640FD5D82621BB /* GlobeShaders.msl */ = {isa = PBXFileReference; path = GlobeShaders.msl; sourceTree = "<group>"; };
 		215F49B3F841DE3440F367AA /* SystemNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemNetwork.swift; sourceTree = "<group>"; };
 		2C07490D907FC72ABA04E40D /* LocalNetworkAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkAccess.swift; sourceTree = "<group>"; };
 		2FF79609EE12EE52B838A724 /* ProcessCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessCatalog.swift; sourceTree = "<group>"; };
+		32D5FBC9BC43B8F9BAD13ED7 /* Bluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bluetooth.swift; sourceTree = "<group>"; };
 		342B506DC4F978B6EF03D1F3 /* KnownHosts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownHosts.swift; sourceTree = "<group>"; };
 		39B7A39C77A0108212D4A88C /* PacketDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketDecoder.swift; sourceTree = "<group>"; };
 		3E05D8673B85C0B8D01A7629 /* PingMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PingMonitor.swift; sourceTree = "<group>"; };
@@ -195,6 +199,14 @@
 			path = WiFi;
 			sourceTree = "<group>";
 		};
+		1ECDA6A618F3155CA9E56542 /* Bluetooth */ = {
+			isa = PBXGroup;
+			children = (
+				0A3040A5B74AE376966FCABB /* BluetoothView.swift */,
+			);
+			path = Bluetooth;
+			sourceTree = "<group>";
+		};
 		2D27D8A472B9C680BC9690C1 /* Connections */ = {
 			isa = PBXGroup;
 			children = (
@@ -226,6 +238,7 @@
 				9BFA9C043E3F33EEF074045E /* Capture */,
 				55631EB423DA72C4BA860B81 /* DNS */,
 				7A203908649C4B93BC8F6EF1 /* BandwidthShaper.swift */,
+				32D5FBC9BC43B8F9BAD13ED7 /* Bluetooth.swift */,
 				EF14A345185153B3F21A3EE0 /* ConnectionMonitor.swift */,
 				82496A93028F3CA1E50660CC /* DHCP.swift */,
 				00E688B79C48CFDE0FC29BBA /* Diagnostics.swift */,
@@ -352,6 +365,7 @@
 			isa = PBXGroup;
 			children = (
 				BFA0DF2D43C1576CE408C945 /* Bandwidth */,
+				1ECDA6A618F3155CA9E56542 /* Bluetooth */,
 				4446DB37215B17C730FB0B66 /* Capture */,
 				2D27D8A472B9C680BC9690C1 /* Connections */,
 				BF81293798CFFADCEEA4BEB5 /* DNS */,
@@ -539,6 +553,8 @@
 				4EA202A3EC8FD82FB8245BD9 /* BPF.swift in Sources */,
 				3F4B8C75F911B9AECDCFDB6A /* BandwidthShaper.swift in Sources */,
 				AFF599E22422F67201F42A6F /* BandwidthView.swift in Sources */,
+				FD243B4ECD6212BBE539C737 /* Bluetooth.swift in Sources */,
+				8606937978B7597AAA0F0F7F /* BluetoothView.swift in Sources */,
 				29E6DAF70215D85AF482FA35 /* CaptureSession.swift in Sources */,
 				ADF9AB498294FBBA3DD67446 /* CaptureView.swift in Sources */,
 				AB601380586514FAF028E786 /* Components.swift in Sources */,
@@ -649,7 +665,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -668,7 +684,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -732,7 +748,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -745,7 +761,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

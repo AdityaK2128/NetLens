@@ -7,7 +7,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
     case overview, globe
     case connections, bandwidth, ports
     case ping, traceroute, dns, http, speed
-    case interfaces, wifi, routing, neighbors
+    case interfaces, wifi, bluetooth, routing, neighbors
     case capture, nmap
 
     var id: String { rawValue }
@@ -26,6 +26,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
         case .speed: "Speed & Quality"
         case .interfaces: "Interfaces"
         case .wifi: "Wi-Fi"
+        case .bluetooth: "Bluetooth"
         case .routing: "Routing Table"
         case .neighbors: "LAN & Neighbors"
         case .capture: "Packet Capture"
@@ -47,6 +48,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
         case .speed: "gauge.with.dots.needle.67percent"
         case .interfaces: "rectangle.connected.to.line.below"
         case .wifi: "wifi"
+        case .bluetooth: "antenna.radiowaves.left.and.right"
         case .routing: "signpost.right.and.left"
         case .neighbors: "house"
         case .capture: "waveform.badge.magnifyingglass"
@@ -58,7 +60,7 @@ enum NavSection: String, CaseIterable, Identifiable, Hashable {
         ("See", [.overview, .globe]),
         ("Live", [.connections, .bandwidth, .ports]),
         ("Diagnose", [.ping, .traceroute, .dns, .http, .speed]),
-        ("Local network", [.interfaces, .wifi, .routing, .neighbors]),
+        ("Local network", [.interfaces, .wifi, .bluetooth, .routing, .neighbors]),
         ("Advanced", [.capture, .nmap]),
     ]
 }

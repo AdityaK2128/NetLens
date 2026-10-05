@@ -109,6 +109,8 @@ struct WiFiView: View {
         }
         .onAppear {
             if let b = model.wifi.bandGHz { band = b }
+            // `-NLWiFiAutoScan YES`: scan on launch (used for screenshots and testing).
+            if UserDefaults.standard.bool(forKey: "NLWiFiAutoScan") && networks.isEmpty { scan() }
         }
     }
 
@@ -258,10 +260,50 @@ enum WiFiMath2 {
 private struct SpectrumChart: View {
     let networks: [WiFiNetwork]
     let band: Double
+    @State private var hover: CGPoint?
 
     private let palette: [Color] = [.blue, .purple, .orange, .pink, .teal, .green, .indigo, .brown]
 
+    /// Every network sharing a channel (and width) draws the same hump, so they're
+    /// labelled and coloured as one group.
+    private struct Group {
+        let centre: Double          // MHz
+        let width: Int
+        var members: [WiFiNetwork]  // strongest first
+        var peak: Int { members.first?.rssi ?? -100 }
+        var hasCurrent: Bool { members.contains(where: \.isCurrent) }
+        /// Distinct names with each one's strongest signal and how many access points use it.
+        var names: [(name: String, rssi: Int, aps: Int, current: Bool)] {
+            var seen: [String: (Int, Int, Bool)] = [:]
+            var order: [String] = []
+            for n in members {
+                let k = n.ssid ?? "‹hidden›"
+                if let e = seen[k] { seen[k] = (max(e.0, n.rssi), e.1 + 1, e.2 || n.isCurrent) }
+                else { seen[k] = (n.rssi, 1, n.isCurrent); order.append(k) }
+            }
+            return order.map { (name: $0, rssi: seen[$0]!.0, aps: seen[$0]!.1, current: seen[$0]!.2) }
+                .sorted { $0.current != $1.current ? $0.current : $0.rssi > $1.rssi }
+        }
+    }
+
+    private var groups: [Group] {
+        var byKey: [String: Group] = [:]
+        for n in networks {
+            let c = WiFiMath2.freq(WiFiMath2.centreChannel(n.channel, width: n.width, bandGHz: band), bandGHz: band)
+            let k = "\(c)|\(n.width)"
+            var g = byKey[k] ?? Group(centre: c, width: n.width, members: [])
+            g.members.append(n)
+            byKey[k] = g
+        }
+        return byKey.values.map { g in
+            var g = g
+            g.members.sort { $0.rssi > $1.rssi }
+            return g
+        }.sorted { $0.centre < $1.centre }
+    }
+
     var body: some View {
+        let groups = self.groups
         Canvas { ctx, size in
             let range = WiFiMath2.range(band)
             let plot = CGRect(x: 36, y: 8, width: size.width - 44, height: size.height - 30)
@@ -272,7 +314,7 @@ private struct SpectrumChart: View {
             var grid = Path()
             for d in stride(from: -90.0, through: -30, by: 10) {
                 grid.move(to: CGPoint(x: plot.minX, y: y(d))); grid.addLine(to: CGPoint(x: plot.maxX, y: y(d)))
-                ctx.draw(Text("\(Int(d))").font(.mono(8.5)).foregroundStyle(Theme.faint), at: CGPoint(x: 16, y: y(d)))
+                ctx.draw(Text(verbatim: "\(Int(d))").font(.mono(8.5)).foregroundStyle(Theme.faint), at: CGPoint(x: 16, y: y(d)))
             }
             ctx.stroke(grid, with: .color(Theme.line.opacity(0.6)), style: StrokeStyle(lineWidth: 0.5, dash: [2, 3]))
 
@@ -280,26 +322,101 @@ private struct SpectrumChart: View {
             let ticks: [Int] = band < 3 ? Array(1...13) : band < 5.9 ? [36, 44, 52, 60, 100, 108, 116, 124, 132, 140, 149, 157, 165, 173] : Array(stride(from: 1, through: 233, by: 16))
             for t in ticks {
                 let fx = x(WiFiMath2.freq(Double(t), bandGHz: band))
-                ctx.draw(Text("\(t)").font(.mono(8.5)).foregroundStyle(Theme.muted), at: CGPoint(x: fx, y: plot.maxY + 10))
+                ctx.draw(Text(verbatim: "\(t)").font(.mono(8.5)).foregroundStyle(Theme.muted), at: CGPoint(x: fx, y: plot.maxY + 10))
             }
 
-            // humps, weakest first so strong ones sit on top
-            for (i, n) in networks.sorted(by: { $0.rssi < $1.rssi }).enumerated() {
-                let centre = WiFiMath2.freq(WiFiMath2.centreChannel(n.channel, width: n.width, bandGHz: band), bandGHz: band)
-                let half = Double(n.width) / 2
-                let x0 = x(centre - half), x1 = x(centre + half)
-                let top = y(Double(n.rssi)), base = y(-100)
+            func hump(_ g: Group, _ rssi: Int) -> Path {
+                let half = Double(g.width) / 2
+                let x0 = x(g.centre - half), x1 = x(g.centre + half)
+                let top = y(Double(rssi)), base = y(-100)
                 var p = Path()
                 p.move(to: CGPoint(x: x0, y: base))
                 p.addCurve(to: CGPoint(x: (x0 + x1) / 2, y: top), control1: CGPoint(x: x0 + (x1 - x0) * 0.12, y: top), control2: CGPoint(x: x0 + (x1 - x0) * 0.25, y: top))
                 p.addCurve(to: CGPoint(x: x1, y: base), control1: CGPoint(x: x1 - (x1 - x0) * 0.25, y: top), control2: CGPoint(x: x1 - (x1 - x0) * 0.12, y: top))
-                let c = n.isCurrent ? Theme.accent : palette[i % palette.count].opacity(0.75)
-                ctx.fill(p, with: .color(c.opacity(n.isCurrent ? 0.22 : 0.08)))
-                ctx.stroke(p, with: .color(c.opacity(n.isCurrent ? 1 : 0.7)), lineWidth: n.isCurrent ? 2 : 1)
-                if n.rssi > -82 || n.isCurrent {
-                    ctx.draw(Text(n.ssid ?? "hidden").font(.mono(9, n.isCurrent ? .bold : .regular)).foregroundStyle(c),
-                             at: CGPoint(x: (x0 + x1) / 2, y: top - 8))
+                return p
+            }
+            func color(_ i: Int, _ g: Group) -> Color { g.hasCurrent ? Theme.accent : palette[i % palette.count] }
+
+            // Which group is under the pointer (the narrowest hump containing it wins).
+            var hovered: Int?
+            if let h = hover, plot.contains(h) {
+                hovered = groups.indices.filter { i in
+                    let half = Double(groups[i].width) / 2
+                    return h.x >= x(groups[i].centre - half) && h.x <= x(groups[i].centre + half)
+                }.min { groups[$0].width < groups[$1].width }
+            }
+
+            // humps: weakest groups first so strong ones sit on top; one colour per channel
+            let order = groups.indices.sorted { groups[$0].peak < groups[$1].peak }
+            for i in order {
+                let g = groups[i]
+                let c = color(i, g)
+                let lit = hovered == i
+                for n in g.members.reversed() {
+                    let p = hump(g, n.rssi)
+                    ctx.fill(p, with: .color(c.opacity(n.isCurrent ? 0.22 : (lit ? 0.12 : 0.05))))
+                    ctx.stroke(p, with: .color(c.opacity(n.isCurrent || lit ? 1 : 0.65)), lineWidth: n.isCurrent || lit ? 2 : 1)
                 }
+            }
+
+            // labels: strongest groups get first pick; collisions stack upward
+            var placed: [CGRect] = []
+            for i in groups.indices.sorted(by: { (groups[$0].hasCurrent ? 1 : 0, groups[$0].peak) > (groups[$1].hasCurrent ? 1 : 0, groups[$1].peak) }) {
+                let g = groups[i]
+                guard g.peak > -85 || g.hasCurrent, let first = g.names.first else { continue }
+                let more = g.names.count - 1
+                let label = Text(verbatim: first.name).font(.system(size: 10, weight: first.current ? .semibold : .regular)).foregroundStyle(color(i, g))
+                    + Text(verbatim: more > 0 ? "  +\(more)" : "").font(.system(size: 10)).foregroundStyle(Theme.secondary)
+                let resolved = ctx.resolve(label)
+                let sz = resolved.measure(in: CGSize(width: 400, height: 40))
+                var r = CGRect(x: x(g.centre) - sz.width / 2, y: y(Double(g.peak)) - 8 - sz.height, width: sz.width, height: sz.height)
+                r.origin.x = min(max(r.minX, plot.minX), plot.maxX - r.width)
+                var tries = 0
+                while placed.contains(where: { $0.insetBy(dx: -4, dy: -1).intersects(r) }) && tries < 6 {
+                    r.origin.y -= sz.height + 2
+                    tries += 1
+                }
+                guard r.minY >= 0, !placed.contains(where: { $0.insetBy(dx: -4, dy: -1).intersects(r) }) else { continue }
+                placed.append(r)
+                ctx.draw(resolved, in: r)
+            }
+
+            // hover card: everything on that channel
+            if let i = hovered, let h = hover {
+                let g = groups[i]
+                let lines = g.names.prefix(9)
+                var rows: [GraphicsContext.ResolvedText] = []
+                let chs = Array(Set(g.members.map(\.channel))).sorted().map(String.init)
+                rows.append(ctx.resolve(Text(verbatim: "Channel\(chs.count == 1 ? "" : "s") \(chs.joined(separator: ", ")) · \(g.width) MHz · \(g.members.count) access point\(g.members.count == 1 ? "" : "s")")
+                    .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.text)))
+                for l in lines {
+                    rows.append(ctx.resolve(Text(verbatim: "\(l.rssi) dBm   ").font(.mono(10.5)).foregroundStyle(Theme.secondary)
+                        + Text(verbatim: l.name).font(.system(size: 10.5, weight: l.current ? .semibold : .regular)).foregroundStyle(l.current ? Theme.accent : Theme.text)
+                        + Text(verbatim: l.aps > 1 ? "  ×\(l.aps)" : "").font(.system(size: 10.5)).foregroundStyle(Theme.tertiary)))
+                }
+                if g.names.count > lines.count {
+                    rows.append(ctx.resolve(Text(verbatim: "+\(g.names.count - lines.count) more").font(.system(size: 10.5)).foregroundStyle(Theme.tertiary)))
+                }
+                let sizes = rows.map { $0.measure(in: CGSize(width: 500, height: 30)) }
+                let w = (sizes.map(\.width).max() ?? 0) + 20
+                let ht = sizes.reduce(0) { $0 + $1.height + 3 } + 14
+                var box = CGRect(x: h.x + 14, y: h.y - ht / 2, width: w, height: ht)
+                if box.maxX > size.width - 4 { box.origin.x = h.x - 14 - w }
+                box.origin.y = min(max(box.minY, 2), size.height - ht - 2)
+                let shape = RoundedRectangle(cornerRadius: 8, style: .continuous).path(in: box)
+                ctx.fill(shape, with: .color(Theme.card))
+                ctx.stroke(shape, with: .color(Theme.separator), lineWidth: 0.5)
+                var yy = box.minY + 7
+                for (k, r) in rows.enumerated() {
+                    ctx.draw(r, in: CGRect(x: box.minX + 10, y: yy, width: sizes[k].width, height: sizes[k].height))
+                    yy += sizes[k].height + 3
+                }
+            }
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let p): hover = p
+            case .ended: hover = nil
             }
         }
     }

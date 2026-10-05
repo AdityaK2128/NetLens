@@ -13,6 +13,7 @@ enum Glossary: String, CaseIterable, Identifiable {
     case listeningExposure, ecmp, privateHop, mtu, linkLocal, privateMAC, dhcp
     case bonjour, arp, routeLookup, bandwidthCaps, bpf, captureFilter, socketStates, clientIsolation
     case portStates, nmapTiming, osDetection
+    case bluetoothKinds, bleAdvertising, bluetoothProfiles, blePrivacy
 
     var id: String { rawValue }
 
@@ -82,6 +83,10 @@ enum Glossary: String, CaseIterable, Identifiable {
         case .portStates: "Open, closed, filtered"
         case .nmapTiming: "Timing templates"
         case .osDetection: "Service & OS detection"
+        case .bluetoothKinds: "Bluetooth Classic vs Low Energy"
+        case .bleAdvertising: "Advertising"
+        case .bluetoothProfiles: "Profiles"
+        case .blePrivacy: "Why devices have no address"
         }
     }
 
@@ -197,6 +202,14 @@ enum Glossary: String, CaseIterable, Identifiable {
             "Apple's zero-configuration networking: devices announce services (AirPlay, printers, file sharing…) on the local network with multicast DNS, no setup needed."
         case .arp:
             "The table mapping IP addresses on your local network to hardware (MAC) addresses — ARP for IPv4, Neighbor Discovery for IPv6. Every device you've recently exchanged packets with appears here. Recent macOS versions hide it from apps; NetLens reads it through its helper when installed."
+        case .bluetoothKinds:
+            "Classic Bluetooth (BR/EDR) carries continuous streams like headphone audio and keyboards. Bluetooth Low Energy (BLE) sends tiny bursts and sleeps in between, so trackers, watches and sensors can run for months on a coin cell. Both share the 2.4 GHz band with Wi-Fi."
+        case .bleAdvertising:
+            "BLE devices announce themselves several times a second on three dedicated channels (37, 38, 39) with a short packet: maybe a name, the maker's ID, the services offered and how loud they're transmitting. Anyone listening can hear it — that's how this scan works, without connecting to anything."
+        case .bluetoothProfiles:
+            "Profiles are the jobs a Bluetooth link can do: A2DP streams music, HFP handles calls, AVRCP is play/pause, HID is keyboards and mice, GATT is how low-energy devices expose data like battery level, and LE Audio is the newer low-energy audio standard."
+        case .blePrivacy:
+            "Phones, earbuds and AirTags change their Bluetooth address every few minutes so they can't be tracked, and macOS doesn't give apps the address at all — just an ID that's stable on this Mac. So one phone can show up as several entries over time."
         case .portStates:
             "Open: a program accepted the connection. Closed: the host answered but nothing is listening. Filtered: no answer at all — a firewall dropped the probe, so nmap can't tell what's behind it."
         case .nmapTiming:

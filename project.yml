@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.2"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "0.1.3"
+    CURRENT_PROJECT_VERSION: "4"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
 
 targets:
@@ -67,6 +67,7 @@ targets:
         NSHumanReadableCopyright: "NetLens — networking, explained visually."
         NSLocationUsageDescription: "macOS only reveals the Wi-Fi network name (SSID) and access point (BSSID) to apps with Location access. NetLens never stores or sends your location."
         NSLocationWhenInUseUsageDescription: "macOS only reveals the Wi-Fi network name (SSID) and access point (BSSID) to apps with Location access. NetLens never stores or sends your location."
+        NSBluetoothAlwaysUsageDescription: "NetLens shows nearby Bluetooth Low Energy devices and their signal strength when you start a scan on the Bluetooth screen."
         NSLocalNetworkUsageDescription: "NetLens discovers devices and Bonjour services on your local network, and probes your router (NAT-PMP) to detect carrier-grade NAT."
         NSBonjourServices:
           - _services._dns-sd._udp
