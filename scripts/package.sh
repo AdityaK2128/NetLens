@@ -11,5 +11,5 @@ xcodebuild -project NetLens.xcodeproj -scheme NetLens -configuration Release \
 APP=build/DerivedData/Build/Products/Release/NetLens.app
 mkdir -p dist
 rm -f "dist/NetLens-$VERSION-macOS.zip"
-ditto -c -k --sequesterRsrc --keepParent "$APP" "dist/NetLens-$VERSION-macOS.zip"
+ditto -c -k --norsrc --noextattr --noacl --keepParent "$APP" "dist/NetLens-$VERSION-macOS.zip"
 shasum -a 256 "dist/NetLens-$VERSION-macOS.zip"
